@@ -1,0 +1,41 @@
+eureka:
+  instance:
+    hostname: product-service
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+server:
+  port: 8082
+spring:
+
+  kafka:
+    bootstrap-servers: localhost:9092 # Địa chỉ của Kafka broker
+    consumer:
+      group-id: tpd-loggers1 # ID của group consumer
+      auto-offset-reset: earliest # Cách xử lý offset
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+
+  application:
+    name: Product-Service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3302/productdb
+    username: root
+    password: Abc@123456789
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database: mysql
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+
+application:
+  config:
+    products-url: http://localhost:8222/api/v1/products
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0

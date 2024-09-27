@@ -1,0 +1,222 @@
+
+services:
+
+  # discovery-server:
+  #   container_name: discovery-server
+  #   image: nguyentanthanh0709/discovery-server:latest
+  #   build:
+  #     context: ./Discovery-Server
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8761:8761"
+  #   volumes:
+  #     - ./Discovery-Server:/app:rw
+  #   networks:
+  #     - microservices-network
+
+  # api-gateway:
+  #   container_name: api-gateway
+  #   image: nguyentanthanh0709/api-gateway:latest
+  #   build: 
+  #     context: ./Gateway
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8222:8222"
+  #   volumes:
+  #     - ./Gateway:/app:rw
+  #   networks:
+  #     - microservices-network
+  #   links:
+  #     - discovery-server
+  #   depends_on:
+  #     - discovery-server
+  #   deploy:
+  #       resources:
+  #               limits:
+  #                       cpus: '0.5'
+  #                       memory: 512M
+
+  # user-service:
+  #   container_name: user-service
+  #   image: nguyentanthanh0709/user-service:latest
+  #   build:
+  #     context: ./User-Service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8081:8081"
+  #   volumes:
+  #     - ./User-Service:/app:rw
+  #   networks:
+  #     - microservices-network
+  #   links:
+  #     - discovery-server
+  #     - api-gateway
+  #     - user-mysql
+  #   depends_on:
+  #     - discovery-server
+  #     - api-gateway
+  #     - user-mysql
+  #   deploy:
+  #       resources:
+  #               limits:
+  #                       cpus: '0.5'
+  #                       memory: 512M
+
+  # product-service:
+  #   container_name: product-service
+  #   image: nguyentanthanh0709/product-service:latest
+  #   build: 
+  #     context: ./Product-Service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8082:8082"
+  #   volumes:
+  #     - ./Product-Service:/app:rw
+  #   networks:
+  #     - microservices-network
+  #   links:
+  #     - discovery-server
+  #     - api-gateway
+  #     - product-mysql
+  #   depends_on:
+  #     - discovery-server
+  #     - api-gateway
+  #     - product-mysql
+  #   deploy:
+  #       resources:
+  #               limits:
+  #                       cpus: '0.5'
+  #                       memory: 512M
+
+  # cart-service:
+  #   container_name: cart-service
+  #   image: nguyentanthanh0709/cart-service:latest
+  #   build: 
+  #     context: ./Cart-Service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8083:8083"
+  #   volumes:
+  #     - ./Cart-Service:/app:rw
+  #   networks:
+  #     - microservices-network
+  #   links:
+  #     - discovery-server
+  #     - api-gateway
+  #     - cart-mysql
+  #   depends_on:
+  #     - discovery-server
+  #     - api-gateway
+  #     - cart-mysql
+  #   deploy:
+  #       resources:
+  #               limits:
+  #                       cpus: '0.5'
+  #                       memory: 512M
+
+  # purchase-service:
+  #   container_name: purchase-service
+  #   image: nguyentanthanh0709/purchase-service:latest
+  #   build: 
+  #     context: ./Purchase-Service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8084:8084"
+  #   volumes:
+  #     - ./Purchase-Service:/app:rw
+  #   networks:
+  #     - microservices-network
+  #   links:
+  #     - discovery-server
+  #     - api-gateway
+  #     - purchase-mysql
+  #   depends_on:
+  #     - discovery-server
+  #     - api-gateway
+  #     - purchase-mysql
+  #   deploy:
+  #       resources:
+  #               limits:
+  #                       cpus: '0.5'
+  #                       memory: 512M
+
+  # notification-service:
+  #   container_name: notification-service
+  #   image: nguyentanthanh0709/notification-service:latest
+  #   build: 
+  #     context: ./Notification-Service
+  #     dockerfile: Dockerfile
+  
+  #   ports:
+  #     - "8085:8085"
+  #   volumes:
+  #     - ./Notification-Service:/app:rw
+  #   networks:
+  #     - microservices-network
+  #   links:
+  #     - discovery-server
+  #     - api-gateway
+  #   depends_on:
+  #     - discovery-server
+  #     - api-gateway
+  #   deploy:
+  #       resources:
+  #               limits:
+  #                       cpus: '0.5'
+  #                       memory: 512M
+
+  user-mysql:
+    image: nguyentanthanh0709/mysql:userdb
+    container_name: user-mysql
+    environment:
+      MYSQL_USER: thanhntt
+      MYSQL_PASSWORD: Abc@123456789
+      MYSQL_ROOT_PASSWORD: Abc@123456789
+      MYSQL_DATABASE: userdb
+    ports:
+      - "3301:3306"
+    networks:
+      - microservices-network
+
+  product-mysql:
+    image: nguyentanthanh0709/mysql:productdb
+    container_name: product-mysql
+    environment:
+      MYSQL_USER: thanhntt
+      MYSQL_PASSWORD: Abc@123456789
+      MYSQL_ROOT_PASSWORD: Abc@123456789
+      MYSQL_DATABASE: productdb
+    ports:
+      - "3302:3306"
+    networks:
+      - microservices-network
+
+  cart-mysql:
+    image: nguyentanthanh0709/mysql:cartdb
+    container_name: cart-mysql
+    environment:
+      MYSQL_USER: thanhntt
+      MYSQL_PASSWORD: Abc@123456789
+      MYSQL_ROOT_PASSWORD: Abc@123456789
+      MYSQL_DATABASE: cartdb
+    ports:
+      - "3303:3306"
+    networks:
+      - microservices-network
+
+  purchase-mysql:
+    image: nguyentanthanh0709/mysql:purchasedb
+    container_name: purchase-mysql
+    environment:
+      MYSQL_USER: thanhntt
+      MYSQL_PASSWORD: Abc@123456789
+      MYSQL_ROOT_PASSWORD: Abc@123456789
+      MYSQL_DATABASE: purchasedb
+    ports:
+      - "3304:3306"
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    external: true
