@@ -43,6 +43,16 @@ public class ProductController {
         return new ResponseEntity<>(productReponSingle, HttpStatus.OK);
     }
 
+
+    @GetMapping("/{id}/ElasticSearch")
+    public ResponseEntity<ProductReponSingle> getProductByIdE(@PathVariable Long id) {
+        Product product = productService.getByIdE(id);
+        ProductReponSingle productReponSingle = new ProductReponSingle();
+        productReponSingle.setMessage("Lấy sản phẩm thành công");
+        productReponSingle.setData(product);
+        return new ResponseEntity<>(productReponSingle, HttpStatus.OK);
+    }
+
     @GetMapping("/shop/{shopId}")
     public ResponseEntity<List<Product>> getProductsByShopId(@PathVariable Long shopId) {
         List<Product> products = productService.getListByShopId(shopId);

@@ -45,16 +45,16 @@ public class ConsumerService {
         productEService.addProduct(product);
     }
 
-    @KafkaListener(topics = "updateProductBasic", containerFactory = "kafkaListenerJsonFactory2", groupId = "tpd-loggers1")
-    public void consumeMessage2(ProductRequest productRequest) {
-        logger.info("**** -> Consumed message -> {}", productRequest.toString());
-        productEService.updateProductBasic(productRequest);
+    @KafkaListener(topics = "updateProductBasic", containerFactory = "kafkaListenerJsonFactory1", groupId = "tpd-loggers1")
+    public void consumeMessage2(Product product) {
+        logger.info("**** -> Consumed message -> {}", product.getId());
+        productEService.updateProductBasic(product);
     }
 
-    @KafkaListener(topics = "updateProductDetail", containerFactory = "kafkaListenerJsonFactory2", groupId = "tpd-loggers1")
-    public void consumeMessage3(ProductRequest productRequest) {
-        logger.info("**** -> Consumed message -> {}", productRequest.toString());
-        productEService.updateProductDetail(productRequest);
+    @KafkaListener(topics = "updateProductDetail", containerFactory = "kafkaListenerJsonFactory1", groupId = "tpd-loggers1")
+    public void consumeMessage3(Product product) {
+        logger.info("**** -> Consumed message -> {}", product.toString());
+        productEService.updateProductDetail(product);
     }
 
     @KafkaListener(topics = "updateProductSell", containerFactory = "kafkaListenerJsonFactory1", groupId = "tpd-loggers1")
@@ -63,16 +63,16 @@ public class ConsumerService {
         productEService.updateProductSell(product);
     }
 
-    @KafkaListener(topics = "updateProductShip", containerFactory = "kafkaListenerJsonFactory2", groupId = "tpd-loggers1")
-    public void consumeMessage5(ProductRequest productRequest) {
-        logger.info("**** -> Consumed message -> {}", productRequest.toString());
-        productEService.updateProductShip(productRequest);
+    @KafkaListener(topics = "updateProductShip", containerFactory = "kafkaListenerJsonFactory1", groupId = "tpd-loggers1")
+    public void consumeMessage5(Product product) {
+        logger.info("**** -> Consumed message -> {}", product.toString());
+        productEService.updateProductShip(product);
     }
 
-    @KafkaListener(topics = "addReview", containerFactory = "kafkaListenerJsonFactory3", groupId = "tpd-loggers1")
-    public void consumeMessage8(ProductReview reviewRequest) {
-        logger.info("**** -> Consumed message -> {}", reviewRequest.toString());
-        productEService.addReview(reviewRequest);
+    @KafkaListener(topics = "addReview", containerFactory = "kafkaListenerJsonFactory1", groupId = "tpd-loggers1")
+    public void consumeMessage8(Product product) {
+        logger.info("**** -> Consumed message -> {}", product.toString());
+        productEService.addReview(product);
     }
 
     @KafkaListener(topics = "plusView", containerFactory = "kafkaListenerStringFactory", groupId = "tpd-loggers1")

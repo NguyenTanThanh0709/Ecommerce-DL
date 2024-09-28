@@ -6,12 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.productservice.Entity.Product;
-import com.example.productservice.Entity.ProductReview;
 import com.example.productservice.Entity.ElasticSearch.ProductE;
 import com.example.productservice.Entity.ElasticSearch.ProductReviewE;
 import com.example.productservice.Entity.ElasticSearch.SizeQuantityE;
-import com.example.productservice.Mapper.ProductMapper;
-import com.example.productservice.Product.ProductRequest;
+import com.example.productservice.Mapper.ProductMapper1;
 import com.example.productservice.Repository.ElasticSearch.ProductERepository;
 
 @Service
@@ -25,40 +23,44 @@ public class ProductEServiceImpl implements ProductEService{
     public void addProduct(Product product) {
         // TODO Auto-generated method stub
         // throw new UnsupportedOperationException("Unimplemented method 'addProduct'");
-        ProductE productE = ProductMapper.toProductElas(product);
+        ProductE productE = ProductMapper1.toProductElas(product);
         productERepository.save(productE);
     }
 
     @Override
-    public void updateProductBasic(ProductRequest productRequest) {
+    public void updateProductBasic(Product product) {
         // TODO Auto-generated method stub
         // throw new UnsupportedOperationException("Unimplemented method 'updateProductBasic'");
 
-        ProductE productE = productERepository.findById(productRequest.getId()).get();
-        productE.setImages(productRequest.getImages());
-        productE.setImage(productRequest.getImage());
-        productE.setName(productRequest.getName());
-        productE.setDescription(productRequest.getDescription());
+        ProductE productE = productERepository.findById(product.getId())
+    .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        productE.setImages(product.getImages());
+        productE.setImage(product.getImage());
+        productE.setName(product.getName());
+        productE.setDescription(product.getDescription());
 
         productERepository.save(productE);
     }
 
     @Override
-    public void updateProductDetail(ProductRequest productRequest) {
+    public void updateProductDetail(Product product) {
         // TODO Auto-generated method stub
-        ProductE productE = productERepository.findById(productRequest.getId()).get();
-        productE.setShortDescription(productRequest.getShortDescription());
+        ProductE productE = productERepository.findById(product.getId())
+    .orElseThrow(() -> new RuntimeException("Product not found"));
+        productE.setShortDescription(product.getShortDescription());
         productERepository.save(productE);
     }
 
     @Override
     public void updateProductSell(Product product) {
         // TODO Auto-generated method stub
-        ProductE productE = productERepository.findById(product.getId()).get();
+        ProductE productE = productERepository.findById(product.getId())
+    .orElseThrow(() -> new RuntimeException("Product not found"));
         productE.setPrice(product.getPrice());
         productE.setQuantity(product.getQuantity());
         if(product.getSizeQuantities() != null && product.getSizeQuantities().size() != 0){
-            List<SizeQuantityE> productEs = ProductMapper.mapSizeQuantities(product.getSizeQuantities());
+            List<SizeQuantityE> productEs = ProductMapper1.mapSizeQuantities(product.getSizeQuantities());
             productE.setSizeQuantities(productEs);
           
         }
@@ -66,24 +68,29 @@ public class ProductEServiceImpl implements ProductEService{
     }
 
     @Override
-    public void updateProductShip(ProductRequest productRequest) {
+    public void updateProductShip(Product product) {
         // TODO Auto-generated method stub
-        ProductE productE = productERepository.findById(productRequest.getId()).get();
-        productE.setWeight(productRequest.getWeight());
-        productE.setHeight(productRequest.getHeight());
-        productE.setWidth(productRequest.getWidth());
-        productE.setLength(productRequest.getLength());
+        ProductE productE = productERepository.findById(product.getId())
+    .orElseThrow(() -> new RuntimeException("Product not found"));
+        productE.setWeight(product.getWeight());
+        productE.setHeight(product.getHeight());
+        productE.setWidth(product.getWidth());
+        productE.setLength(product.getLength());
 
         productERepository.save(productE);
     }
 
+
+
+
     @Override
-    public void addReview(ProductReview productReview) {
+    public void addReview(Product product) {
         // TODO Auto-generated method stub
         // throw new UnsupportedOperationException("Unimplemented method 'addReview'");
-        ProductE productE = productERepository.findById(productReview.getProduct().getId()).get();
-        ProductReviewE productReviewE = ProductMapper.mapReview(productReview);
-        productE.getReviews().add(productReviewE);
+        ProductE productE = productERepository.findById(product.getId())
+    .orElseThrow(() -> new RuntimeException("Product not found"));
+        List<ProductReviewE> list = ProductMapper1.mapReviews(product.getReviews());
+        productE.setReviews(list);
         productERepository.save(productE);
 
     }
@@ -202,7 +209,9 @@ public class ProductEServiceImpl implements ProductEService{
         Long data = Long.parseLong(id);
         // TODO Auto-generated method stub
         // throw new UnsupportedOperationException("Unimplemented method 'plusView'");
-        ProductE productE = productERepository.findById(data).get();
+        ProductE productE = productERepository.findById(product.getId())
+    .orElseThrow(() -> new RuntimeException("Product not found"));
+        List<ProductReviewE> list = ProductMapper1.mapReviews(product.getReviews());
         productE.setView(productE.getView()+1);
         productERepository.save(productE);
     }

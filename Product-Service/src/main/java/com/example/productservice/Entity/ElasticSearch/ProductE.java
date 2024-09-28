@@ -59,11 +59,11 @@ public class ProductE {
     @Field(type = FieldType.Double)
     private double weight;
 
-    @Field(type = FieldType.Date)
-    private LocalDateTime createdAt;
+    @Field(type = FieldType.Text)
+    private String createdAt = LocalDateTime.now().toString();
 
-    @Field(type = FieldType.Date)
-    private LocalDateTime updatedAt;
+    @Field(type = FieldType.Text)
+    private String updatedAt = LocalDateTime.now().toString();
 
     @Field(type = FieldType.Double)
     private double rating;

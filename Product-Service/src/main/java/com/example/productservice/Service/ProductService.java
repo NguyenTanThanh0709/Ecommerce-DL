@@ -31,7 +31,9 @@ public interface ProductService {
     public void incrementProductView(Long id);
     List<Product> getListByShopId(Long shopId);
     public SizeQuantity findByIdSizeQuantity(Long id);
+
     Product getById(Long id);
+    Product getByIdE(Long id);
 
     Page<Product> findAllWithFiltersAndSorting(String deeplearning,String name,
                                                Long idcategory,

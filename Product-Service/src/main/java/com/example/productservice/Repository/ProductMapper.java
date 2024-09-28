@@ -6,7 +6,6 @@ import com.example.productservice.Entity.Category;
 import com.example.productservice.Entity.SizeQuantity;
 import com.example.productservice.Product.SizeQuantityRequest;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 

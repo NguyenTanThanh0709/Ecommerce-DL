@@ -2,6 +2,7 @@ package com.example.productservice.Service.impl;
 
 import com.example.productservice.Entity.Promotion;
 import com.example.productservice.Entity.SizeQuantity;
+import com.example.productservice.Entity.ElasticSearch.ProductE;
 import com.example.productservice.Product.Order_Cart.ProductReponseCart_Order;
 import com.example.productservice.Product.Order_Cart.SizeQuantityReponseCart_Order;
 import com.example.productservice.Product.ProductRequest;
@@ -16,6 +17,7 @@ import com.example.productservice.Reponse.PromotionRequest;
 import com.example.productservice.Reponse.ReponseOrder.ReponseOrder;
 import com.example.productservice.Reponse.ReponseOrder.ReponseOrderData;
 import com.example.productservice.Repository.*;
+import com.example.productservice.Repository.ElasticSearch.ProductERepository;
 import com.example.productservice.Service.ProducerService;
 import com.example.productservice.Service.ProductService;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,8 +27,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import com.example.productservice.Mapper.ProductMapper1;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -46,14 +50,12 @@ public class ProductImpl implements ProductService {
     private ModelMapper modelMapper;
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
-
+    @Autowired
+    private ProductERepository productERepository;
     @Autowired
     private ProducerService<Product> kafkaTemplateProduct;
-    @Autowired
-    private ProducerService<ProductRequest> kafkaTemplateProductRequest;
+
     
-
-
     // elasticsearch
     @Override
     @Transactional 
@@ -73,6 +75,7 @@ public class ProductImpl implements ProductService {
     }
 // elasticsearch
     @Override
+    @Transactional 
     public Product updateProductBasic(Long id, ProductRequest productRequest) {
         Category category = categoryRepository.findById(productRequest.getCategoryId())
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -85,8 +88,7 @@ public class ProductImpl implements ProductService {
             product1.setName(productRequest.getName());
             product1.setDescription(productRequest.getDescription());
             Product p =  productRepository.save(product1);
-            productRequest.setId(p.getId());
-            kafkaTemplateProductRequest.sendSuperHeroMessage("updateProductBasic", productRequest);
+            kafkaTemplateProduct.sendSuperHeroMessage("updateProductBasic", p);
             return p;
         }else {
             throw new RuntimeException("Product not found");
@@ -101,8 +103,7 @@ public class ProductImpl implements ProductService {
             Product product1 = product.get();
             product1.setShortDescription(productRequest.getShortDescription());
             Product p =  productRepository.save(product1);
-            productRequest.setId(p.getId());
-            kafkaTemplateProductRequest.sendSuperHeroMessage("updateProductDetail", productRequest);
+            kafkaTemplateProduct.sendSuperHeroMessage("updateProductDetail", p);
             return p;
         }else {
             throw new RuntimeException("Product not found");
@@ -178,8 +179,7 @@ public class ProductImpl implements ProductService {
             product1.setWidth(productRequest.getWidth());
             product1.setLength(productRequest.getLength());
             Product p =  productRepository.save(product1);
-            productRequest.setId(p.getId());
-            kafkaTemplateProductRequest.sendSuperHeroMessage("updateProductShip", productRequest);
+            kafkaTemplateProduct.sendSuperHeroMessage("updateProductShip", p);
             return p;
         }else {
             throw new RuntimeException("Product not found");
@@ -203,7 +203,7 @@ public class ProductImpl implements ProductService {
         Product product = productRepository.findById(id).orElseThrow(() -> new RuntimeException("Insert new product"));
         product.setView(product.getView() + 1);
         productRepository.save(product);
-        kafkaTemplate.send( "plusView",id.toString());
+        // kafkaTemplate.send( "plusView",id.toString());
         return product;
     }
 
@@ -486,6 +486,8 @@ public class ProductImpl implements ProductService {
             Product product = productOptional.get();
             product.setView(product.getView() + 1);
             productRepository.save(product);
+            kafkaTemplate.send( "plusView",id.toString());
+
         } else {
             throw new RuntimeException("Product not found");
         }
@@ -497,6 +499,19 @@ public class ProductImpl implements ProductService {
         // throw new UnsupportedOperationException("Unimplemented method 'findAllWithFiltersAndSortingE'");
         return productRepository.findAllWithFiltersAndSorting(name, idcategory, price_min, price_max, sortBy, order, rating_filter, pageable);
 
+    }
+    @Override
+    public Product getByIdE(Long id) {
+        // TODO Auto-generated method stub
+        // throw new UnsupportedOperationException("Unimplemented method 'getByIdE'");
+        Optional<ProductE> product = productERepository.findById(id);
+        ProductE p = product.get();
+        Product pp = ProductMapper1.toProduct(p);
+        incrementProductView(id);
+        return pp;
+
+
+        
     }
 
 }

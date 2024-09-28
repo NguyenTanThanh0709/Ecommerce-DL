@@ -9,15 +9,15 @@ public interface ProductEService {
     // add
     void addProduct(Product product);
     // updateProductBasic
-    void updateProductBasic(ProductRequest productRequest);
+    void updateProductBasic(Product product);
     // elasticsearch
-    void updateProductDetail(ProductRequest productRequest);
+    void updateProductDetail(Product product);
     // elasticsearch
     void updateProductSell(Product product);
     // elasticsearch
-    void updateProductShip(ProductRequest productRequest);
+    void updateProductShip(Product product);
     // addReview
-    void addReview(ProductReview reviewRequest);
+    void addReview(Product product);
 
     void plusView(String id);
 
