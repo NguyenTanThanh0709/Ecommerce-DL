@@ -4,6 +4,8 @@ package com.example.userservice.Controller;
 import com.example.userservice.Entity.Shop;
 import com.example.userservice.User.ShopDTO;
 import com.example.userservice.service.ShopService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,7 +47,7 @@ public class ShopController {
     }
 
     @GetMapping("/seller/{sellerId}")
-    public ResponseEntity<Shop> getShopBySellerId(@PathVariable Long sellerId) {
+    public ResponseEntity<Shop> getShopBySellerId(@PathVariable Long sellerId) throws JsonProcessingException {
         Shop shop = shopService.getShopBySellerId(sellerId);
         if (shop == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -54,7 +56,7 @@ public class ShopController {
     }
 
     @GetMapping("/exists")
-    public Long checkShopExists(@RequestParam Long sellerId) {
+    public Long checkShopExists(@RequestParam Long sellerId) throws JsonProcessingException {
         return shopService.doesShopExistForSeller(sellerId);
     }
 }

@@ -206,12 +206,11 @@ public class ProductEServiceImpl implements ProductEService{
 
     @Override
     public void plusView(String id) {
-        Long data = Long.parseLong(id);
         // TODO Auto-generated method stub
         // throw new UnsupportedOperationException("Unimplemented method 'plusView'");
-        ProductE productE = productERepository.findById(product.getId())
+        Long id_ = Long.parseLong(id);
+        ProductE productE = productERepository.findById(id_)
     .orElseThrow(() -> new RuntimeException("Product not found"));
-        List<ProductReviewE> list = ProductMapper1.mapReviews(product.getReviews());
         productE.setView(productE.getView()+1);
         productERepository.save(productE);
     }

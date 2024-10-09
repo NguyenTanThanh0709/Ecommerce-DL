@@ -5,6 +5,8 @@ import com.example.userservice.User.ProfileReponse;
 import com.example.userservice.User.UpdatePassword;
 import com.example.userservice.auth.UserDTO;
 import com.example.userservice.service.UserService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +21,7 @@ public class UserController {
 
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUserById(@PathVariable Long id) {
+    public ResponseEntity<?> getUserById(@PathVariable Long id) throws JsonProcessingException {
         User user = userService.getUserById(id);
         ProfileReponse profileReponse = new ProfileReponse("OK", user);
 

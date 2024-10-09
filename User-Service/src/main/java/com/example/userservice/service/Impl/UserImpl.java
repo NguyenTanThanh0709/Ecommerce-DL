@@ -4,6 +4,9 @@ import com.example.userservice.Entity.User;
 import com.example.userservice.auth.UserDTO;
 import com.example.userservice.repositoty.UserRepository;
 import com.example.userservice.service.UserService;
+import com.example.userservice.service.impRedis.UserRedisImpl;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +22,8 @@ public class UserImpl implements UserService {
     private UserRepository userRepository;
     @Autowired
     private  PasswordEncoder passwordEncoder;
-
+    @Autowired
+    private UserRedisImpl userRedis;
 
     @Override
     public boolean checkUserExist(String email, String phone) {
@@ -44,20 +48,28 @@ public class UserImpl implements UserService {
             user.setWard(userDTO.getWard());
             user.setDetailLocation(userDTO.getDetailLocation());
 
-            userRepository.save(user); // Lưu người dùng đã cập nhật vào cơ sở dữ liệu
-            return user;
+            User user_ = userRepository.save(user); // Lưu người dùng đã cập nhật vào cơ sở dữ liệu
+            userRedis.deleteUser(user_.getId());
+            return user_;
         } else {
             return null;
         }
     }
 
     @Override
-    public User getUserById(Long id) {
-        Optional<User> user = userRepository.findById(id);
-        if(user.isPresent()){
-            return user.get();
+    public User getUserById(Long id) throws JsonProcessingException {
+        User user_ =  userRedis.getUser(id);
+        if(user_ != null){
+            return user_;
+        }else{
+            Optional<User> user = userRepository.findById(id);
+            if(user.isPresent()){
+                User user2 = user.get();
+                userRedis.setUser(id, user2);
+                return user2;
+            }
+            return null;
         }
-        return null;
     }
 
     @Override

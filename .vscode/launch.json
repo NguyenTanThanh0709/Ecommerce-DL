@@ -1,5 +1,6 @@
 {
     "configurations": [
+
         {
             "type": "java",
             "name": "Spring Boot-UserServiceApplication<User-Service>",
@@ -8,8 +9,7 @@
             "mainClass": "com.example.userservice.UserServiceApplication",
             "projectName": "User-Service",
             "args": "",
-            "envFile": "${workspaceFolder}/.env",
-            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=57115 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=User-Service"
+            "envFile": "${workspaceFolder}/.env"
         },
         {
             "type": "java",

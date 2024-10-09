@@ -6,6 +6,9 @@ import com.example.userservice.User.ShopDTO;
 import com.example.userservice.repositoty.ShopRepository;
 import com.example.userservice.repositoty.UserRepository;
 import com.example.userservice.service.ShopService;
+import com.example.userservice.service.impRedis.ShopRedisImpl;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,8 @@ public class ShopImpl implements ShopService {
     private  ShopRepository shopRepository;
     @Autowired
     private  UserRepository userRepository;
+    @Autowired
+    private  ShopRedisImpl shopRedis;
 
 
     @Override
@@ -56,7 +61,9 @@ public class ShopImpl implements ShopService {
         existingShop.setDistrict(shopDTO.getDistrict());
         existingShop.setWard(shopDTO.getWard());
         existingShop.setDetailLocation(shopDTO.getDetailLocation());
-        return shopRepository.save(existingShop);
+        Shop updatedShop = shopRepository.save(existingShop);
+        shopRedis.deleteShop(existingShop.getId());
+        return updatedShop;
     }
 
     @Override
@@ -65,12 +72,20 @@ public class ShopImpl implements ShopService {
     }
 
     @Override
-    public Shop getShopBySellerId(Long sellerId) {
-        return shopRepository.findBySellerId(sellerId).orElse(null);
+    public Shop getShopBySellerId(Long sellerId) throws JsonProcessingException {
+        Shop shop = shopRedis.getShop(sellerId);
+        if(shop != null){
+            return shop;
+        }
+        shop = shopRepository.findBySellerId(sellerId).orElse(null);
+        if(shop != null){
+            shopRedis.setShop(sellerId, shop);
+        }
+        return shop;
     }
 
     @Override
-    public Long doesShopExistForSeller(Long sellerId) {
+    public Long doesShopExistForSeller(Long sellerId) throws JsonProcessingException {
         if(shopRepository.existsBySellerId(sellerId)){
             Shop shop = this.getShopBySellerId(sellerId);
             return shop.getId();
