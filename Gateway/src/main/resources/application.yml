@@ -62,8 +62,7 @@ spring:
           uri: lb://DATA-AGGREGATION-SERVICE
           predicates:
             - Path=/api/v1/aggreations/**
-          filters:
-            - AuthenticationFilter
+
 management:
   tracing:
     sampling:

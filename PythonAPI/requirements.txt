@@ -1,1 +1,3 @@
-        
+!pip -q install faiss-gpu
+!pip -q install sentence-transformers
+pip install scikit-learn flask flask-mysql flask-cors py-eureka-client requests pillow glob2 matplotlib faiss-cpu sentence-transformers tqdm pandas pymysql

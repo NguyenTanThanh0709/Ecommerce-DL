@@ -127,9 +127,6 @@ public class ProductImpl implements ProductService {
 // Remove sizeQuantities not in the request
                 product1.setQuantity(productRequest.getQuantity());
 
-                // Find size quantities to be removed
-                List<SizeQuantity> toRemove = new ArrayList<>();
-
                 List<SizeQuantity> currentSizeQuantities = product1.getSizeQuantities();
 
                 currentSizeQuantities.removeIf(sizeQuantity ->

@@ -1,20 +1,18 @@
-
-from sklearn.metrics.pairwise import cosine_similarity
 from flask import Flask, request, jsonify
 from flaskext.mysql import MySQL
 from py_eureka_client import eureka_client
 from flask_cors import CORS
 import requests
-from io import BytesIO
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
-from tensorflow.keras.models import Model
 from PIL import Image
-import pandas as pd
-import numpy as np
-# from tensorflow.keras.preprocessing.image import img_to_array
+from io import BytesIO
 import os
+from glob import glob
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
+from collaborative_filtering import CF  # Import the CF class
 import pymysql
+import pandas as pd
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     
 
@@ -36,36 +34,134 @@ eureka_client.init(eureka_server="http://localhost:8761/eureka",
 mysql.init_app(app)
 
 
-# Hàm tạo model
-def get_extract_model():
-    vgg16_model = VGG16(weights="imagenet")
-    extract_model = Model(inputs=vgg16_model.inputs, outputs=vgg16_model.get_layer("fc1").output)
-    return extract_model
+# =========================Content Image Base===========================
 
-# Hàm tiền xử lý, chuyển đổi hình ảnh thành tensor
-def image_preprocess(img):
-    img = img.resize((224, 224))
-    img = img.convert("RGB")
-    x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0)
-    x = preprocess_input(x)
-    return x
+model = SentenceTransformer('clip-ViT-B-32')
+chunk_size = 32
 
-# Hàm trích xuất đặc trưng từ ảnh
-def extract_vector(model, image_path):
-    try:
-        response = requests.get(image_path)
-        img = Image.open(BytesIO(response.content))
-        img_tensor = image_preprocess(img)
+@app.route('/api/v1/aggreations/products', methods=['POST'])
+def get_products():
 
-        # Trích đặc trưng
-        vector = model.predict(img_tensor)[0]
-        # Chuẩn hóa vector bằng cách chia cho L2 norm
-        vector = vector / np.linalg.norm(vector)
-        return vector
-    except Exception as e:
-        print(f"Không thể xử lý ảnh {image_path}: {e}")
-        return None
+    # Lấy dữ liệu từ request body
+    data = request.get_json()
+    image_url = data.get('image')  # Renamed the variable
+
+    if not image_url:
+        return jsonify({"error": "No image link provided"}), 400
+    
+    conn = mysql.connect()
+    if not conn:
+        return jsonify({"error": "Could not connect to the database"}), 500
+    cursor = conn.cursor()
+    
+    query = "SELECT id, image FROM product"
+    cursor.execute(query)
+    
+    data = cursor.fetchall()
+    if len(data) == 0:
+        return jsonify({"error": "No products found in the database"}), 404
+
+    image_data = []
+    for row in data:
+        image_data.append({'id': row[0], 'image': row[1]})
+    
+    cursor.close()
+    conn.close()
+
+
+    # Process images in chunks --------------------------------------------------------------
+
+    embeddings = []
+
+
+    index = None
+    if os.path.exists('index.faiss') and os.path.exists('ids.npy'):
+        index = faiss.read_index('index.faiss')
+        ids = np.load('ids.npy')
+        print("Index loaded successfully.")
+    else:
+            # Process images in chunks
+        for i in range(0, len(image_data), chunk_size):
+            chunk = image_data[i:i + chunk_size]
+            chunk_embeddings = process_chunk(chunk)
+            embeddings.extend(chunk_embeddings)
+
+        dimension = len(embeddings[0])
+        index = faiss.IndexFlatIP(dimension)
+        index = faiss.IndexIDMap(index)
+
+        vectors = np.array(embeddings).astype('float32')
+        ids = np.array(range(0, len(vectors))).astype('int64')
+        index.add_with_ids(vectors, np.array(range(len(embeddings))))
+
+        faiss.write_index(index, 'index.faiss')
+        #
+        # Save IDs to a .npy file
+        with open('ids.npy', 'wb') as f:
+            np.save(f, ids)
+
+        print("Index and IDs saved successfully.")
+
+    # Call the search_image function with the new variable name
+    query, retrieved_images = search_image(image_url, model, index, image_data, top_k=5)  # Pass the renamed variable
+    if retrieved_images:
+        return jsonify({"retrieved_images": retrieved_images})
+    else:
+        return jsonify({"error": "No similar images found"}), 404
+
+def process_chunk(chunk):
+    images = []
+    for data in chunk:
+        try:
+            # Fetch the image from the URL
+            response = requests.get(data['image'])
+            image = Image.open(BytesIO(response.content))
+            images.append(image)
+        except Exception as e:
+            print(f"Could not load image ID {data['id']}: {e}")
+    
+    # Encode the images using the SentenceTransformer model
+    if images:
+        chunk_embeddings = model.encode(images)
+        return chunk_embeddings
+    else:
+        return []
+
+def search_image(query, model, index, image_data, top_k=5):
+    # Check if the query is a URL and load the image if it is
+    if query.startswith("http://") or query.startswith("https://"):
+        response = requests.get(query)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            try:
+                query = Image.open(BytesIO(response.content)).convert("RGB")  # Ensure it's in RGB mode
+            except Exception as e:
+                print(f"Error loading image from URL: {e}")
+                return None, []
+        else:
+            print(f"Failed to retrieve image, status code: {response.status_code}")
+            return None, []
+    else:
+        print("Query is not a valid URL.")
+        return None, []
+
+    # Encode the query image to get its embedding
+    query_embedding = model.encode([query])
+    query_embedding = query_embedding.astype('float32').reshape(1, -1)
+
+    # Search the index for the top_k most similar images
+    distances, indices = index.search(query_embedding, top_k)
+
+    # Retrieve the corresponding images from image_data
+    # retrieved_images = [image_data[i] for i in indices[0] if i < len(image_data)]
+    retrieved_images = [image_data[i]["id"] for i in indices[0] if i < len(image_data)]
+
+    return query, retrieved_images
+
+# =========================Content Image Base===========================
+
+# =========================RECOMMENDATION SYSTEM===========================
 
 # Hàm kết nối đến cơ sở dữ liệu
 def connect_db(user, password, db, host, port):
@@ -76,173 +172,126 @@ def connect_db(user, password, db, host, port):
                            port=port,  # Thêm tham số port
                            cursorclass=pymysql.cursors.DictCursor)
 
+# SELECT DISTINCT o.customer_id as iduser, oi.product_id as idproduct, 0 as rating
+# FROM orders o
+# JOIN order_item oi ON o.id = oi.order_id
+# WHERE o.customer_id IS NOT NULL;
+
+# SELECT rating as rating FROM `product_review` WHERE id_customer = ? and product_id = ?
+
+def closeConnect(conn_purchase, cursor_purchase, conn_review, cursor_review):
+    conn_purchase.close()
+    cursor_purchase.close()
+    conn_review.close()
+    cursor_review.close()
+
+def getDataRecommen():
+    conn_purchase = connect_db('root', 'Abc@123456789', 'purchasedb', '127.0.0.1', 3306)
+    cursor_purchase = conn_purchase.cursor()
+    query_purchase = "SELECT DISTINCT o.customer_id AS iduser, oi.product_id AS idproduct, 0 AS rating FROM orders o JOIN order_item oi ON o.id = oi.order_id WHERE o.customer_id IS NOT NULL"
+    cursor_purchase.execute(query_purchase)
+    order_data = cursor_purchase.fetchall()
+    # Create DataFrame
+    df_orders = pd.DataFrame(order_data, columns=['iduser', 'idproduct', 'rating'])
+    # Convert DataFrame to a list of lists
+    array_result = df_orders.values.tolist()
+    # Convert DataFrame to JSON
+    
+    conn_product = connect_db('root', 'Abc@123456789', 'productdb', '127.0.0.1', 3306)
+    cursor_product = conn_product.cursor()
+    # Loop through each order to update the rating
+    for row in array_result:
+        customer_id = row[0]
+        product_id = row[1]
+        # First query: check if a customer rating exists for the product in product_review table
+        query_review = "SELECT rating FROM product_review WHERE id_customer = %s AND product_id = %s"
+        cursor_product.execute(query_review, (customer_id, product_id))
+        review_result = cursor_product.fetchone()
+        if review_result:
+            # If a rating exists, update the rating in the array
+            row[2] = review_result[0]  # If review_result is a tuple
+            # row[2] = review_result['rating']  # If review_result is a dictionary
+        else:
+            # If no review exists, check the product rating in the product table
+            query_product = "SELECT rating FROM product WHERE id = %s"
+            cursor_product.execute(query_product, (product_id,))
+            product_result = cursor_product.fetchone()
+            
+            # Safely check if product_result is not None and access the rating based on type (tuple or dictionary)
+            if product_result is not None:
+                if isinstance(product_result, tuple):  # If product_result is a tuple
+                    rating = product_result[0]
+                elif isinstance(product_result, dict):  # If product_result is a dictionary
+                    rating = product_result.get('rating', 0)  # Default to 0 if 'rating' key not found
+                
+                # Set the rating if valid, otherwise default to 4
+                row[2] = rating if rating > 0 else 4
+            else:
+                # If no product rating exists, set the default rating to 4
+                row[2] = 4
+    closeConnect(conn_purchase, cursor_purchase, conn_product, cursor_product)
+    return array_result
+
 @app.route('/api/v1/aggreations/<int:user_id>', methods=['GET'])
 def recommend_for_user(user_id):
-    # Kết nối đến cơ sở dữ liệu 1 và truy vấn bảng 'product'
-    conn1 = connect_db('root', 'Abc@123456789', 'productdb', '127.0.0.1', 3302)
-    cursor1 = conn1.cursor()
+
+    # Get the data for recommendations and fit the CF model
+    recommendation_data = getDataRecommen()
     
-    query1 = "SELECT id FROM product"
-    cursor1.execute(query1)
-    product_data = cursor1.fetchall()
+    if recommendation_data:
+        # Convert the recommendation data to a suitable format (like a matrix)
+        data_matrix = np.array([
+    [0, 0, 5],
+    [0, 1, 4],
+    [0, 3, 2],
+    [0, 4, 2],
+    [1, 0, 5],
+    [1, 2, 4],
+    [1, 3, 2],
+    [1, 4, 0],
+    [2, 0, 2],
+    [2, 2, 1],
+    [2, 3, 3],
+    [2, 4, 4],
+    [3, 0, 0],
+    [3, 1, 0],
+    [3, 3, 4],
+    [4, 0, 1],
+    [4, 3, 4],
+    [5, 1, 2],
+    [5, 2, 1],
+    [6, 2, 1],
+    [6, 3, 4],
+    [6, 4, 5],
+     [7, 0, 2],  # User 7 rates Item 0
+    [7, 1, 3],  # User 7 rates Item 1
+    [7, 2, 1],  # User 7 rates Item 2
+    [8, 0, 4],  # User 8 rates Item 0
+    [8, 1, 2],  # User 8 rates Item 1
+    [8, 2, 3],  # User 8 rates Item 2
+    [9, 0, 5],  # User 9 rates Item 0
+    [9, 1, 4],  # User 9 rates Item 1
+    [9, 2, 2]   # User 9 rates Item 2
+])
 
-    query1_1 = "select DISTINCT product.id as product_id, product_review.id_customer, product_review.rating from product join product_review on product.id = product_review.product_id"
-    cursor1.execute(query1_1)
-    product_data_review = cursor1.fetchall()
+        # Initialize the CF model with k neighbors
+        cf = CF(data_matrix=data_matrix, k=3, uuCF=1)
 
+        # Fit the CF model
+        cf.fit()
 
-    cursor1.close()
-    conn1.close()
+        # Get recommendations for the specified user
+        recommended_items = cf.recommend(user_id)  # Assuming you have a recommend method
 
-    # Kết nối đến cơ sở dữ liệu 2 và truy vấn bảng 'order'
-    conn2 = connect_db('root', 'Abc@123456789', 'purchasedb', '127.0.0.1', 3304)
-    cursor2 = conn2.cursor()
-    
-    query2 = "SELECT DISTINCT orders.customer_id, order_item.product_id FROM orders JOIN order_item ON orders.id = order_item.order_id"
-    cursor2.execute(query2)
-    order_data = cursor2.fetchall()
-    cursor2.close()
-    conn2.close()
-
-    # Kết nối đến cơ sở dữ liệu 3 và truy vấn bảng 'user'
-    conn3 = connect_db('root', 'Abc@123456789', 'userdb', '127.0.0.1', 3301)
-    cursor3 = conn3.cursor()
-    
-    query3 = "SELECT id FROM user"
-    cursor3.execute(query3)
-    user_data = cursor3.fetchall()
-    cursor3.close()
-    conn3.close()
-
-    df_orders = pd.DataFrame(order_data)
-    df_reviews = pd.DataFrame(product_data_review)
-    df_products = pd.DataFrame(product_data)
-    df_users = pd.DataFrame(user_data)
-
-    # Initialize the matrix with NaN values, with products as index (rows) and users as columns
-    user_product_matrix = pd.DataFrame(np.nan, index=df_products['id'], columns=df_users['id'])
-    user_product_matrix.index.name = 'user_id'  # Tên hàng
-    user_product_matrix.columns.name = 'product_id'    # Tên cột
-    # Populate the matrix with ratings
-    for _, review in df_reviews.iterrows():
-        user_product_matrix.loc[review['product_id'], review['id_customer']] = review['rating']
-
-    # Fill in the matrix based on purchase data
-    for _, order in df_orders.iterrows():
-        if pd.isna(user_product_matrix.loc[order['product_id'], order['customer_id']]):
-            user_product_matrix.loc[order['product_id'], order['customer_id']] = get_ratingproduct(order['product_id'])  # Default rating for purchases
-
-    # Fill in the matrix for non-purchases
-    user_product_matrix = user_product_matrix.fillna(0)
-    user_product_matrix = pd.DataFrame(user_product_matrix).T  # .T để chuyển đổi từ hàng thành cột (chuyển index và columns)
-    # Step 2: Calculate user similarity matrix
-    user_similarity = cosine_similarity(user_product_matrix)
-    user_similarity_df = pd.DataFrame(user_similarity, index=user_product_matrix.index, columns=user_product_matrix.index)
-
-    # Trả về dữ liệu từ cả ba cơ sở dữ liệu
-    recommended_products_for_user_1 = recommend_products(user_id, user_product_matrix, user_similarity_df)
-    return jsonify(recommended_products_for_user_1)
-
-def get_ratingproduct(product_id):
-    conn1 = connect_db('root', 'Abc@123456789', 'productdb', '127.0.0.1', 3302)
-    cursor1 = conn1.cursor()
-
-    try:
-        query1 = "SELECT rating FROM product WHERE id = %s"
-        cursor1.execute(query1, (product_id,))
-        result = cursor1.fetchone()
-        
-        if result is not None:
-            return result['rating']
+        # Ensure that recommended_items is a list
+        if isinstance(recommended_items, list):
+            return jsonify(recommended_items), 200  # Return the list directly
         else:
-            return 0  # Trả về 0 nếu không tìm thấy sản phẩm hoặc không có rating
-    finally:
-        cursor1.close()
-        conn1.close()
-# Step 3: Generate recommendations for a specific user
-def recommend_products(user_id, user_item_matrix, user_similarity_df, top_n=5):
-    if user_id not in user_similarity_df.index:
-        return jsonify({"error":"User not found"})
-    
-    similar_users = user_similarity_df[user_id].sort_values(ascending=False)[1:]
-    user_product_ratings = user_item_matrix.loc[user_id]
-    
-    recommendations = pd.Series(dtype='float64')
-
-    for similar_user, similarity in similar_users.items():
-        similar_user_ratings = user_item_matrix.loc[similar_user]
-        for product in similar_user_ratings.index:
-            if user_product_ratings[product] == 0:  # Consider only products the user hasn't rated
-                if product not in recommendations:
-                    recommendations[product] = similarity * similar_user_ratings[product]
-                else:
-                    recommendations[product] += similarity * similar_user_ratings[product]
-
-    recommendations = recommendations.sort_values(ascending=False).head(top_n)
-    return recommendations.index.tolist()
-
-@app.route('/api/v1/aggreations/products', methods=['POST'])
-def get_products():
-
-    # Lấy dữ liệu từ request body
-    data = request.get_json()
-    search_image = data.get('image')
-
-    if not search_image:
-        return jsonify({"error": "No image link provided"}), 400
-    
-    conn = mysql.connect()
-    cursor = conn.cursor()
-    
-    query = "SELECT id, image FROM product"
-    cursor.execute(query)
-    
-    data = cursor.fetchall()
-    
-    image_data = []
-    for row in data:
-        image_data.append({'id': row[0], 'image': row[1]})
-    
-    cursor.close()
-    conn.close()
-
-    nearest_images = handLe(model, image_data, search_image)
-
-
-    return jsonify(nearest_images)
-
-
-def handLe(model,image_data, search_image):
-
-    # Trích xuất đặc trưng từ tất cả ảnh
-    vectors = []
-    valid_ids = []
-    for item  in image_data:
-        vector = extract_vector(model, item['image'])
-        if vector is not None:
-            vectors.append(vector)
-            valid_ids.append(item['id'])
-
-    # Chuyển đổi danh sách vectors thành numpy array
-    vectors = np.array(vectors)
-
-
-    # Trích đặc trưng ảnh search
-    search_vector = extract_vector(model, search_image)
-    # Tính khoảng cách từ search_vector đến tất cả các vector
-    distances = np.linalg.norm(vectors - search_vector, axis=1)
-    # Sắp xếp và lấy ra K vector có khoảng cách ngắn nhất
-    K = 5
-    ids_sorted = np.argsort(distances)[:K]
-
-    # # Tạo output
-    # nearest_images = [{"id": valid_ids[id], "link_url_picture": image_data[id]['image']} for id in ids_sorted]
-    concatenated_ids = "_".join(str(valid_ids[id]) for id in ids_sorted)
-
-    return concatenated_ids
-
+            return jsonify([]), 404  # Return an empty list if no recommendations are available
+    else:
+        return jsonify([]), 500  # Return an empty list if there's an error
+# =========================RECOMMENDATION SYSTEM===========================
 
 
 if __name__ == '__main__':
-    model = get_extract_model()
-    app.run(debug=True, port=rest_port)
+    app.run(debug=True, port=rest_port) 
